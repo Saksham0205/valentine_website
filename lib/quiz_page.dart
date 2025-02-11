@@ -143,7 +143,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
       final intersection = currentAnswers.intersection(userAnswers);
       final matchPercent = (intersection.length / _answers.length) * 100;
 
-      if (matchPercent >= 90) {
+      if (matchPercent >= 80) {
         matches.add({
           'name': userData['name'],
           'social': userData['social'],
