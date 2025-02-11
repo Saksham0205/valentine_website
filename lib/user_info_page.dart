@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'quiz_page.dart';
 
 class UserInfoPage extends StatefulWidget {
@@ -11,6 +12,61 @@ class _UserInfoPageState extends State<UserInfoPage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _socialController = TextEditingController();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  bool _isChecking = false; // To show loading state during backend check
+  String _errorMessage = ''; // To display error messages
+
+  // Check if the social handle already exists in Firestore
+  Future<bool> _isSocialHandleUnique(String socialHandle) async {
+    try {
+      final querySnapshot = await _firestore
+          .collection('users')
+          .where('social', isEqualTo: socialHandle)
+          .limit(1)
+          .get();
+
+      return querySnapshot.docs.isEmpty; // True if no matching documents
+    } catch (e) {
+      print('Error checking social handle: $e');
+      return false; // Assume not unique in case of error
+    }
+  }
+
+  void _navigateToQuiz() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        _isChecking = true;
+        _errorMessage = '';
+      });
+
+      final socialHandle = _socialController.text.trim();
+
+      // Check if the social handle is unique
+      final isUnique = await _isSocialHandleUnique(socialHandle);
+
+      setState(() {
+        _isChecking = false;
+      });
+
+      if (isUnique) {
+        // Navigate to QuizPage if the social handle is unique
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => QuizPage(
+              userName: _nameController.text.trim(),
+              socialHandle: socialHandle,
+            ),
+          ),
+        );
+      } else {
+        // Show error message if the social handle already exists
+        setState(() {
+          _errorMessage = 'This social handle is already in use. Please try another one.';
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -77,21 +133,20 @@ class _UserInfoPageState extends State<UserInfoPage> {
                       return null;
                     },
                   ),
+                  if (_errorMessage.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Text(
+                        _errorMessage,
+                        style: TextStyle(
+                          color: Colors.red[800],
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
                   SizedBox(height: 30),
                   ElevatedButton(
-                    onPressed: () {
-                      if (_formKey.currentState!.validate()) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => QuizPage(
-                              userName: _nameController.text,
-                              socialHandle: _socialController.text,
-                            ),
-                          ),
-                        );
-                      }
-                    },
+                    onPressed: _isChecking ? null : _navigateToQuiz,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red[400],
                       padding: EdgeInsets.symmetric(
@@ -102,7 +157,11 @@ class _UserInfoPageState extends State<UserInfoPage> {
                         borderRadius: BorderRadius.circular(30),
                       ),
                     ),
-                    child: Text(
+                    child: _isChecking
+                        ? CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    )
+                        : Text(
                       'Continue to Quiz',
                       style: TextStyle(
                         fontSize: isSmallScreen ? 18 : 20,
