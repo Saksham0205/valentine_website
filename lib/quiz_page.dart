@@ -1,15 +1,24 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:lottie/lottie.dart';
 import 'dart:convert';
 
 class QuizPage extends StatefulWidget {
+  final String userName;
+  final String socialHandle;
+
+  QuizPage({required this.userName, required this.socialHandle});
+
   @override
   _QuizPageState createState() => _QuizPageState();
 }
 
 class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  List<Map<String, dynamic>> _matches = [];
   int _currentQuestionIndex = 0;
   List<String> _answers = [];
   String _result = "";
@@ -18,7 +27,6 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
   late Animation<double> _animation;
 
   // API configuration
-  static const String apiKey = 'AIzaSyBju6Fn9yW21zymWGatVjsmyXQDpRF0Ek4';
   static const String apiEndpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyDzlQfkt8I7n8JvWYnqTUzrXP0g8dJGmDc';
   final String websiteUrl = "https://ajnabee.in";
 
@@ -43,18 +51,38 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
       "question": "Your love language in emoji form is:",
       "options": ["🎁 Gifts", "🤗 Hugs", "🗣️ Words", "👩‍🍳 Acts"],
     },
+    {
+      "question": "Your ideal date night involves:",
+      "options": ["Stargazing 🌌", "Dancing 💃", "Cooking together 👩🍳", "Movie marathon 🍿"],
+    },
+    {
+      "question": "What's your love song anthem?",
+      "options": ["Perfect by Ed Sheeran 🎸", "Crazy in Love 🎺", "All of Me 🎹", "Shape of You 🥁"],
+    },
+    {
+      "question": "How do you resolve conflicts?",
+      "options": ["Deep talks 💬", "Love letters 💌", "Quality time 🌻", "Gifts 🎁"],
+    },
+    {
+      "question": "Pick a couple emoji:",
+      "options": ["👫", "👩❤️💋👨", "💑", "🥰"],
+    },
+    {
+      "question": "Your relationship motto is:",
+      "options": ["Through thick and thin 💪", "Always adventurous 🚀", "Love conquers all ❤️", "Laugh every day 😂"],
+    },
   ];
 
   @override
   void initState() {
     super.initState();
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
     _animation = CurvedAnimation(
       parent: _animationController,
-      curve: Curves.easeInOut,
+      curve: Curves.easeIn,
     );
     _animationController.forward();
   }
@@ -78,17 +106,53 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     });
   }
 
-  Future<void> _generateResult() async {
-    setState(() {
-      _isLoading = true;
-    });
+  void _generateResult() async {
+    setState(() => _isLoading = true);
 
-    final String result = await _callGeminiAPI();
+    // Run API call and Firestore operations concurrently
+    final results = await Future.wait([
+      _callGeminiAPI(),
+      _firestore.collection('users').add({
+        'name': widget.userName,
+        'social': widget.socialHandle,
+        'answers': _answers,
+        'timestamp': FieldValue.serverTimestamp(),
+      }).then((_) => _findMatches()),
+    ]);
 
     setState(() {
-      _result = result;
+      _result = results[0] as String; // API result
+      _matches = results[1] as List<Map<String, dynamic>>; // Matches from Firestore
       _isLoading = false;
     });
+  }
+
+  Future<List<Map<String, dynamic>>> _findMatches() async {
+    List<Map<String, dynamic>> matches = [];
+    final currentAnswers = Set.from(_answers);
+
+    final querySnapshot = await _firestore
+        .collection('users')
+        .where('name', isNotEqualTo: widget.userName)
+        .get();
+
+    for (var doc in querySnapshot.docs) {
+      final userData = doc.data() as Map<String, dynamic>;
+      final userAnswers = Set.from(userData['answers']);
+
+      final intersection = currentAnswers.intersection(userAnswers);
+      final matchPercent = (intersection.length / _answers.length) * 100;
+
+      if (matchPercent >= 90) {
+        matches.add({
+          'name': userData['name'],
+          'social': userData['social'],
+          'match': matchPercent.round()
+        });
+      }
+    }
+
+    return matches;
   }
 
   Future<String> _callGeminiAPI() async {
@@ -180,8 +244,10 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.red[400]!),
+                Lottie.asset(
+                  'assets/loading_animation.json', // Add your Lottie file
+                  width: 150,
+                  height: 150,
                 ),
                 SizedBox(height: 20),
                 Text(
@@ -281,44 +347,119 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
               ),
               child: Column(
                 children: [
-                  Icon(
-                    Icons.favorite,
-                    size: isSmallScreen ? 50 : 60,
-                    color: Colors.red[400],
-                  ),
-                  SizedBox(height: 20),
-                  Text(
-                    "Your Love Analysis",
-                    style: GoogleFonts.dancingScript(
-                      fontSize: isSmallScreen ? 32 : 36,
-                      color: Colors.red[900],
-                      fontWeight: FontWeight.bold,
+                  FadeTransition(
+                    opacity: _animation,
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.favorite,
+                          size: isSmallScreen ? 50 : 60,
+                          color: Colors.red[400],
+                        ),
+                        SizedBox(height: 20),
+                        Text(
+                          "Your Love Analysis",
+                          style: GoogleFonts.dancingScript(
+                            fontSize: isSmallScreen ? 32 : 36,
+                            color: Colors.red[900],
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 30),
+                        StyledResultCard(resultText: _result),
+                        SizedBox(height: 30),
+                        Text(
+                          "Your Perfect Matches",
+                          style: GoogleFonts.dancingScript(
+                            fontSize: isSmallScreen ? 28 : 32,
+                            color: Colors.red[900],
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 20),
+                        if (_matches.isEmpty)
+                          Column(
+                            children: [
+                              Icon(
+                                Icons.auto_awesome,
+                                size: 60,
+                                color: Colors.red[400],
+                              ),
+                              SizedBox(height: 20),
+                              Text(
+                                "You're One of a Kind!",
+                                style: GoogleFonts.dancingScript(
+                                  fontSize: 28,
+                                  color: Colors.red[900],
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              SizedBox(height: 10),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 20),
+                                child: Text(
+                                  "Your unique personality hasn't found its perfect match yet. Don't worry - your special someone is out there! 💫",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.red[800],
+                                    height: 1.5,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                              SizedBox(height: 20),
+                              ElevatedButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _currentQuestionIndex = 0;
+                                    _answers.clear();
+                                    _result = "";
+                                  });
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red[400],
+                                  padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(30),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Try Again',
+                                  style: TextStyle(fontSize: 18, color: Colors.white),
+                                ),
+                              ),
+                            ],
+                          )
+                        else
+                          ..._matches.map((match) => _MatchCard(
+                            name: match['name'],
+                            social: match['social'],
+                            matchPercent: match['match'],
+                          )).toList(),
+                        SizedBox(height: 30),
+                        ElevatedButton.icon(
+                          onPressed: _launchWebsite,
+                          icon: Icon(Icons.spa),
+                          label: Text(
+                            "Get Special Offers",
+                            style: TextStyle(
+                              fontSize: isSmallScreen ? 18 : 20,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red[400],
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isSmallScreen ? 25 : 30,
+                              vertical: isSmallScreen ? 12 : 15,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  SizedBox(height: 30),
-                  StyledResultCard(resultText: _result),
-                  SizedBox(height: 30),
-                  ElevatedButton.icon(
-                    onPressed: _launchWebsite,
-                    icon: Icon(Icons.spa),
-                    label: Text(
-                      "Get Special Offers",
-                      style: TextStyle(
-                        fontSize: isSmallScreen ? 18 : 20,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red[400],
-                      padding: EdgeInsets.symmetric(
-                        horizontal: isSmallScreen ? 25 : 30,
-                        vertical: isSmallScreen ? 12 : 15,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                    ),
-                  ),
-
                 ],
               ),
             ),
@@ -415,6 +556,31 @@ class StyledResultCard extends StatelessWidget {
           if (beautySuggestion.isNotEmpty)
             _buildStyledSection('Beauty Suggestion', beautySuggestion, Icons.spa),
         ],
+      ),
+    );
+  }
+}
+
+class _MatchCard extends StatelessWidget {
+  final String name;
+  final String social;
+  final int matchPercent;
+
+  const _MatchCard({required this.name, required this.social, required this.matchPercent});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.symmetric(vertical: 8, horizontal: 20),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      child: ListTile(
+        leading: Icon(Icons.favorite, color: Colors.red),
+        title: Text(name, style: TextStyle(color: Colors.red[900])),
+        subtitle: Text(social, style: TextStyle(color: Colors.red[800])),
+        trailing: Chip(
+            label: Text("$matchPercent%"),
+            backgroundColor: Colors.red[50],
+            labelStyle: TextStyle(color: Colors.red[900])),
       ),
     );
   }

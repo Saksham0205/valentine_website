@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:valentine_website/user_info_page.dart';
 import 'quiz_page.dart';
 import 'package:animated_text_kit/animated_text_kit.dart';
 
@@ -90,7 +91,7 @@ class HomePage extends StatelessWidget {
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => QuizPage()),
+                          MaterialPageRoute(builder: (context) => UserInfoPage()),
                         );
                       },
                       style: ElevatedButton.styleFrom(
