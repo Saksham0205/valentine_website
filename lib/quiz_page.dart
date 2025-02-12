@@ -143,15 +143,15 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
       final intersection = currentAnswers.intersection(userAnswers);
       final matchPercent = (intersection.length / _answers.length) * 100;
 
-      if (matchPercent >= 80) {
-        matches.add({
-          'name': userData['name'],
-          'social': userData['social'],
-          'match': matchPercent.round()
-        });
-      }
+      matches.add({
+        'name': userData['name'],
+        'social': userData['social'],
+        'match': matchPercent.round()
+      });
     }
 
+    // Sort matches by descending percentage
+    matches.sort((a, b) => b['match'].compareTo(a['match']));
     return matches;
   }
 
@@ -431,11 +431,25 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
                             ],
                           )
                         else
-                          ..._matches.map((match) => _MatchCard(
-                            name: match['name'],
-                            social: match['social'],
-                            matchPercent: match['match'],
-                          )).toList(),
+                          Column(
+                            children: [
+                              Text(
+                                "Compatibility Results",
+                                style: GoogleFonts.dancingScript(
+                                  fontSize: isSmallScreen ? 28 : 32,
+                                  color: Colors.red[900],
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              SizedBox(height: 20),
+                              ..._matches.map((match) => _MatchCard(
+                                name: match['name'],
+                                social: match['social'],
+                                matchPercent: match['match'],
+                              )).toList(),
+                            ],
+                          ),
+
                         SizedBox(height: 30),
                         ElevatedButton.icon(
                           onPressed: _launchWebsite,
@@ -570,17 +584,36 @@ class _MatchCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isHighMatch = matchPercent >= 80;
     return Card(
       margin: EdgeInsets.symmetric(vertical: 8, horizontal: 20),
+      color: isHighMatch ? Colors.red[50] : Colors.grey[50],
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       child: ListTile(
-        leading: Icon(Icons.favorite, color: Colors.red),
-        title: Text(name, style: TextStyle(color: Colors.red[900])),
-        subtitle: Text(social, style: TextStyle(color: Colors.red[800])),
+        leading: Icon(
+          isHighMatch ? Icons.favorite : Icons.people_outline,
+          color: isHighMatch ? Colors.red : Colors.grey,
+        ),
+        title: Text(
+          name,
+          style: TextStyle(
+            color: isHighMatch ? Colors.red[900] : Colors.grey[700],
+            fontWeight: isHighMatch ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+        subtitle: Text(
+          social,
+          style: TextStyle(
+            color: isHighMatch ? Colors.red[800] : Colors.grey[600],
+          ),
+        ),
         trailing: Chip(
-            label: Text("$matchPercent%"),
-            backgroundColor: Colors.red[50],
-            labelStyle: TextStyle(color: Colors.red[900])),
+          label: Text("$matchPercent%"),
+          backgroundColor: isHighMatch ? Colors.red[100] : Colors.grey[200],
+          labelStyle: TextStyle(
+            color: isHighMatch ? Colors.red[900] : Colors.grey[800],
+          ),
+        ),
       ),
     );
   }
