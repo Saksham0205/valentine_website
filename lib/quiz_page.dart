@@ -27,7 +27,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
   late Animation<double> _animation;
 
   // API configuration
-  static const String apiEndpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyDzlQfkt8I7n8JvWYnqTUzrXP0g8dJGmDc';
+  static const String apiEndpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}';
   final String websiteUrl = "https://ajnabee.in";
 
   final List<Map<String, dynamic>> _questions = [
@@ -156,9 +156,9 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
   }
 
   Future<String> _callGeminiAPI() async {
-    try {
+  try {
       final response = await http.post(
-        Uri.parse(apiEndpoint),
+        Uri.parse(ApiConfig.getApiEndpoint()),
         headers: {
           'Content-Type': 'application/json',
         },
