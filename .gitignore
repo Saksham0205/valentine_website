@@ -1,4 +1,3 @@
-# Existing content from your .gitignore
 # Miscellaneous
 *.class
 *.log
@@ -19,6 +18,9 @@ migrate_working_dir/
 *.iws
 .idea/
 
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to be included in version control, so this line
+# is commented out by default.
 #.vscode/
 
 # Flutter/Dart/Pub related
@@ -30,10 +32,6 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
-
-# Added these two lines to prevent pushing sensitive files
-lib/firebase_options.dart
-lib/config/api_config.dart
 
 # Symbolication related
 app.*.symbols
